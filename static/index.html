@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070a10">
+  <meta name="description" content="Cosmo-Tracker personal life telemetry dashboard">
+  <title>Cosmo-Tracker — Daily Telemetry</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true"><i data-lucide="orbit" size="20"></i></div>
+        <div>
+          <div class="brand-title">Cosmo-Tracker</div>
+          <div class="brand-subtitle">Personal telemetry system</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="system-status" aria-label="System online">
+          <span class="status-dot"></span><span class="online-text">SYSTEM ONLINE</span>
+        </div>
+        <div class="header-actions">
+          <button class="button button-quiet" id="shortcut-open" type="button"><i data-lucide="webhook" size="14"></i> Shortcut setup</button>
+          <button class="button button-primary" id="checkin-open" type="button"><i data-lucide="plus" size="14"></i> Check in</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-intro" aria-label="Selected day">
+        <div class="intro-copy">
+          <p class="eyebrow">Daily telemetry / personal dashboard</p>
+          <h1 id="greeting-title">Your day, in focus.</h1>
+          <p class="intro-note">Small signals. A clearer picture of how you're showing up.</p>
+        </div>
+        <div class="date-controls">
+          <div class="date-nav" aria-label="Date navigation">
+            <button class="icon-button" id="previous-day" type="button" aria-label="Previous day"><i data-lucide="chevron-left" size="16"></i></button>
+            <div class="date-display" aria-live="polite">
+              <div class="date-day" id="selected-date">Loading date</div>
+              <div class="date-caption" id="selected-day-caption">Daily reading</div>
+            </div>
+            <button class="icon-button" id="next-day" type="button" aria-label="Next day"><i data-lucide="chevron-right" size="16"></i></button>
+          </div>
+          <button class="button button-today" id="today-button" type="button"><i data-lucide="calendar-days" size="14"></i> Today</button>
+        </div>
+      </section>
+
+      <div class="notice" id="api-notice" role="alert">
+        <span id="api-notice-text">Some telemetry could not be reached.</span>
+        <button id="retry-button" type="button">Retry</button>
+      </div>
+
+      <section class="dashboard-grid" aria-label="Daily score and pillars">
+        <article class="panel hero-panel">
+          <div class="hero-topline">
+            <span class="eyebrow">Readiness index <span aria-hidden="true">/</span> 01</span>
+            <span class="live-label"><span class="status-dot"></span> Live score</span>
+          </div>
+          <div class="hero-main" id="score-content">
+            <div class="score-wrap" aria-label="Daily score">
+              <svg class="score-ring" viewBox="0 0 148 148" role="img" aria-hidden="true">
+                <circle class="ring-track" cx="74" cy="74" r="65"></circle>
+                <circle class="ring-value" id="score-ring-value" cx="74" cy="74" r="65"></circle>
+              </svg>
+              <div class="ring-inner">
+                <div class="score-number" id="score-number">—</div>
+                <div class="score-outof">POINTS / 100</div>
+              </div>
+            </div>
+            <div class="score-meta">
+              <span class="tier-badge" id="tier-badge" style="color:var(--muted)"><span class="tier-mark"></span><span id="tier-label">AWAITING DATA</span></span>
+              <h2 class="score-message" id="score-message">A little data goes a long way.</h2>
+              <p class="score-context" id="score-context">Log your day to see how your <strong>health, growth, and routines</strong> come together.</p>
+            </div>
+          </div>
+          <div class="empty-state" id="day-empty-state">
+            <div>
+              <p class="empty-title">Nothing logged for this day yet</p>
+              <p class="empty-description">A quick check-in turns your daily signals into a useful baseline.</p>
+            </div>
+            <div class="empty-actions">
+              <button class="button button-primary" id="empty-checkin" type="button"><i data-lucide="plus" size="13"></i> Log this day</button>
+              <button class="button button-quiet" id="empty-shortcut" type="button"><i data-lucide="webhook" size="13"></i> Set up shortcut</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel pillar-panel">
+          <div class="panel-heading">
+            <div><h2>Three-part picture</h2><p class="panel-kicker">How today's points were made</p></div>
+            <i class="tiny-icon" data-lucide="chart-no-axes-column-increasing" size="17" aria-hidden="true"></i>
+          </div>
+          <div class="pillar-list">
+            <div class="pillar-row" data-pillar="health">
+              <span class="pillar-name">Health</span><div class="pillar-track" role="progressbar" aria-label="Health score" aria-valuemin="0" aria-valuemax="40"><div class="pillar-fill" id="pillar-health-fill" style="background:var(--green)"></div></div>
+              <span class="pillar-value"><b id="pillar-health-value">—</b><span> / 40</span></span>
+            </div>
+            <div class="pillar-row" data-pillar="dev">
+              <span class="pillar-name">Development</span><div class="pillar-track" role="progressbar" aria-label="Development score" aria-valuemin="0" aria-valuemax="25"><div class="pillar-fill" id="pillar-dev-fill" style="background:var(--cyan)"></div></div>
+              <span class="pillar-value"><b id="pillar-dev-value">—</b><span> / 25</span></span>
+            </div>
+            <div class="pillar-row" data-pillar="lifestyle">
+              <span class="pillar-name">Lifestyle</span><div class="pillar-track" role="progressbar" aria-label="Lifestyle score" aria-valuemin="0" aria-valuemax="35"><div class="pillar-fill" id="pillar-lifestyle-fill" style="background:var(--amber)"></div></div>
+              <span class="pillar-value"><b id="pillar-lifestyle-value">—</b><span> / 35</span></span>
+            </div>
+          </div>
+          <div class="pillar-foot"><span>Weighted daily score</span><span>Max 100 pts</span></div>
+        </article>
+      </section>
+
+      <section aria-labelledby="habits-heading">
+        <div class="section-row">
+          <div><h2 class="section-title" id="habits-heading">Daily practices</h2></div>
+          <span class="section-caption" id="habit-summary">5 signals / awaiting check-in</span>
+        </div>
+        <div class="habit-grid" id="habit-grid">
+          <article class="habit-card" data-habit-card="reading_completed"><div class="habit-head"><i class="habit-icon" data-lucide="book-open" size="16"></i><span class="habit-status"><span class="habit-flag"></span><span>Waiting</span></span></div><p class="habit-label">Reading</p></article>
+          <article class="habit-card" data-habit-card="prof_dev_completed"><div class="habit-head"><i class="habit-icon" data-lucide="code-xml" size="16"></i><span class="habit-status"><span class="habit-flag"></span><span>Waiting</span></span></div><p class="habit-label">Professional development</p></article>
+          <article class="habit-card" data-habit-card="healthy_eating_completed"><div class="habit-head"><i class="habit-icon" data-lucide="salad" size="16"></i><span class="habit-status"><span class="habit-flag"></span><span>Waiting</span></span></div><p class="habit-label">Healthy eating</p></article>
+          <article class="habit-card" data-habit-card="family_time_completed"><div class="habit-head"><i class="habit-icon" data-lucide="users-round" size="16"></i><span class="habit-status"><span class="habit-flag"></span><span>Waiting</span></span></div><p class="habit-label">Family time</p></article>
+          <article class="habit-card" data-habit-card="bed_on_time_completed"><div class="habit-head"><i class="habit-icon" data-lucide="moon-star" size="16"></i><span class="habit-status"><span class="habit-flag"></span><span>Waiting</span></span></div><p class="habit-label">Bed on time</p></article>
+        </div>
+      </section>
+
+      <section class="lower-grid" aria-label="Longer-term patterns">
+        <article class="panel trend-panel">
+          <div class="chart-head">
+            <div><h2 class="section-title">Seven-day trend</h2><p class="panel-kicker">Your score, day by day</p></div>
+            <div class="chart-legend"><span class="legend-dot"></span> TOTAL SCORE</div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="trend-chart" role="img" aria-label="Daily total score trend for the last seven days"></canvas>
+            <div class="chart-empty" id="chart-empty" aria-live="polite">
+              <i class="chart-empty-icon" data-lucide="activity" size="21"></i>
+              <strong>No trend data yet</strong>
+              <span>Your logged days will appear here.</span>
+              <button class="button button-quiet" id="seed-history" type="button"><i data-lucide="database" size="13"></i> Initialize history</button>
+            </div>
+          </div>
+          <div class="panel-error" id="history-error"></div>
+        </article>
+        <article class="panel insight-panel">
+          <div class="panel-heading">
+            <div><h2>Consistency</h2><p class="panel-kicker">Current run <span aria-hidden="true">·</span> personal best</p></div>
+            <i class="tiny-icon" data-lucide="flame" size="17" aria-hidden="true"></i>
+          </div>
+          <div class="streaks-list" id="streaks-list" aria-live="polite">
+            <div class="streak-row"><span class="streak-name">Loading streaks</span><span class="streak-now">—</span><span class="streak-best">—</span></div>
+          </div>
+          <div class="bottleneck" id="bottleneck">
+            <div class="bottleneck-head"><span class="bottleneck-label"><i data-lucide="target" size="13"></i> 30-day focus</span><span class="focus-percent" id="focus-percent">—</span></div>
+            <p class="focus-habit" id="focus-habit">Finding your lowest-adherence habit</p>
+            <div class="focus-track" role="progressbar" aria-label="30-day bottleneck adherence" aria-valuemin="0" aria-valuemax="100"><div class="focus-fill" id="focus-fill"></div></div>
+            <div class="focus-meta"><span>30-day adherence</span><span id="focus-days">Analyzing available check-ins</span></div>
+            <div class="panel-error" id="insight-error"></div>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span class="footer-note">A quieter kind of progress.</span>
+      <div class="footer-right"><span>YOUR DATA · YOUR RHYTHM</span><a class="footer-link" href="/api/export/csv" id="export-link"><i data-lucide="download" size="13"></i> Export CSV</a></div>
+    </footer>
+  </div>
+
+  <div class="modal-backdrop" id="checkin-modal" aria-hidden="true">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="checkin-title">
+      <header class="modal-header">
+        <div><h2 id="checkin-title">A quick check-in</h2><p id="checkin-subtitle">A few details make your day easier to read.</p></div>
+        <button class="icon-button modal-close" type="button" data-close-modal aria-label="Close check-in"><i data-lucide="x" size="17"></i></button>
+      </header>
+      <form id="checkin-form" class="modal-content">
+        <p class="form-section-title">Biometrics / Apple Watch</p>
+        <div class="form-grid">
+          <div class="field"><label for="field-steps">Steps</label><input id="field-steps" name="steps" type="number" min="0" step="1" placeholder="0" inputmode="numeric"></div>
+          <div class="field"><label for="field-exercise">Exercise (min)</label><input id="field-exercise" name="exercise_minutes" type="number" min="0" step="1" placeholder="0" inputmode="numeric"></div>
+          <div class="field"><label for="field-sleep">Sleep (hours)</label><input id="field-sleep" name="sleep_hours" type="number" min="0" max="24" step="0.1" placeholder="0.0" inputmode="decimal"></div>
+          <div class="field"><label for="field-hr">Resting heart rate</label><input id="field-hr" name="resting_hr" type="number" min="0" step="1" placeholder="Optional" inputmode="numeric"></div>
+          <div class="field"><label for="field-water">Water (liters)</label><input id="field-water" name="water_liters" type="number" min="0" step="0.1" placeholder="0.0" inputmode="decimal"></div>
+          <div class="field"><label for="field-rating">Day rating</label><select id="field-rating" name="day_rating"><option value="">Not rated</option><option value="1">1 — A tough day</option><option value="2">2 — A quieter day</option><option value="3">3 — A good day</option><option value="4">4 — A great day</option></select></div>
+          <div class="field field-notes"><label for="field-notes">Notes</label><textarea id="field-notes" name="notes" placeholder="Anything worth remembering about today?"></textarea></div>
+        </div>
+        <p class="form-section-title">Daily practices</p>
+        <div class="habit-checks">
+          <label class="habit-toggle"><input type="checkbox" name="reading_completed"><span class="check-box"><i data-lucide="check" size="12"></i></span>Reading</label>
+          <label class="habit-toggle"><input type="checkbox" name="prof_dev_completed"><span class="check-box"><i data-lucide="check" size="12"></i></span>Professional development</label>
+          <label class="habit-toggle"><input type="checkbox" name="healthy_eating_completed"><span class="check-box"><i data-lucide="check" size="12"></i></span>Healthy eating</label>
+          <label class="habit-toggle"><input type="checkbox" name="family_time_completed"><span class="check-box"><i data-lucide="check" size="12"></i></span>Family time</label>
+          <label class="habit-toggle"><input type="checkbox" name="bed_on_time_completed"><span class="check-box"><i data-lucide="check" size="12"></i></span>Bed on time</label>
+        </div>
+        <div class="modal-actions">
+          <span class="form-feedback" id="checkin-feedback" role="status"></span>
+          <button class="button button-primary" id="save-checkin" type="submit"><i data-lucide="save" size="14"></i> Save this day</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="shortcut-modal" aria-hidden="true">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="shortcut-title">
+      <header class="modal-header">
+        <div><h2 id="shortcut-title">Bring your day along.</h2><p>Connect an Apple Shortcut to send your health signals straight to Cosmo.</p></div>
+        <button class="icon-button modal-close" type="button" data-close-modal aria-label="Close shortcut guide"><i data-lucide="x" size="17"></i></button>
+      </header>
+      <div class="modal-content">
+        <p class="form-section-title">Webhook endpoint / POST</p>
+        <div class="shortcut-endpoint"><code id="webhook-url"></code><button class="button copy-button" id="copy-url" type="button"><i data-lucide="copy" size="13"></i> Copy</button></div>
+        <p class="form-section-title" style="margin-top:19px">Payload / application-json</p>
+        <pre class="schema-block" id="payload-example"></pre>
+        <ol class="setup-steps">
+          <li><span><strong>Build a Shortcut.</strong> Add Apple Health actions to find steps, exercise, sleep, resting heart rate and water for today.</span></li>
+          <li><span><strong>Prepare the request.</strong> Add “Get Contents of URL”, paste the endpoint above, choose POST, and set the request body to JSON using the field names in the example. If an API key is enabled, add it as the <code>X-Cosmo-Key</code> header.</span></li>
+          <li><span><strong>Make it yours.</strong> Add habit values (1 for completed, 0 for missed), then run it once to save your check-in. An automation can run it each evening.</span></li>
+        </ol>
+        <div class="shortcut-endpoint"><code>Content-Type: application/json<br>Fields not tracked may be omitted.</code><span class="live-label"><span class="status-dot"></span> Same origin</span></div>
+      </div>
+    </section>
+  </div>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

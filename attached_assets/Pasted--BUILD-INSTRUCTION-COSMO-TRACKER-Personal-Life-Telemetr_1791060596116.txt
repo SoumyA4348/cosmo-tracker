@@ -1,0 +1,168 @@
+# BUILD INSTRUCTION: COSMO-TRACKER (Personal Life Telemetry OS)
+
+    Build a full-stack personal life telemetry application called **Cosmo-Tracker**.
+    Cosmo-Tracker turns daily biometric inputs (steps, exercise, sleep, water from Apple Watch) and 5 daily habits into an objective, deterministic 0–100 daily cognitive readiness score with streak
+  analytics, 30-day bottleneck detection, historical trend charts, and automated Apple Shortcut ingestion.
+
+    ---
+
+    ### 1. TECH STACK & ARCHITECTURE (Replit Optimized)
+    - **Backend:** Python (FastAPI + Uvicorn)
+    - **Database:** SQLite (`cosmo.db`) with `PRAGMA busy_timeout = 5000` and automatic migrations on startup.
+    - **Frontend:** Single Page Application (HTML5, Vanilla ES6+, Chart.js for trends, Lucide Icons for high-tech HUD glyphs).
+    - **Styling:** Cyberpunk / Sci-Fi / High-Tech HUD Dark Mode (`#070a10` background, `#0d131c` cards, glowing cyan `#22d3ee`, emerald `#10b981`, amber `#f59e0b`, rose `#ef4444`). Fonts: `Space Grotesk`
+  (headings) and `JetBrains Mono` (telemetry/numbers).
+    - **Zero Login Friction:** The web dashboard loads directly into the operational HUD by default with zero login gates. Telemetry endpoints support an optional API key (`X-Cosmo-Key` header or `?key=`
+  query param) for securing the Apple Shortcut webhook while defaulting to the primary user locally.
+
+    ---
+
+    ### 2. DETERMINISTIC SCORING ENGINE (Single Source of Truth)
+    Every day is scored from **0 to 100 points** across 3 weighted pillars:
+
+    #### Pillar 1: Health (Max 40.0 pts)
+    Continuous metrics scored via tiered pro-rata calculations (rewarding effort without demotivating near-misses):
+    - **Steps (10.0 pts):** Target: 10,000 steps.
+      - ≥100% (≥10,000): 10.0 pts
+      - 80–99% (8,000–9,999): Pro-rata 8.0 pts (e.g. 8,500 = 8.5 pts)
+      - 60–79% (6,000–7,999): Pro-rata 5.0 pts (e.g. 6,500 = 5.0 pts)
+      - <60% (<6,000): 0.0 pts
+    - **Exercise Minutes (15.0 pts):** Target: 30 minutes.
+      - ≥30 min: 15.0 pts; <30 min: `(exercise_minutes / 30) * 15.0`
+    - **Sleep Hours (10.0 pts):** Target: 7.0–8.5 hours.
+      - 7.0 to 8.5 hrs: 10.0 pts
+      - 6.0 to 6.9 hrs or 8.6 to 9.0 hrs: 7.5 pts
+      - 5.0 to 5.9 hrs: 5.0 pts
+      - <5.0 or >9.5 hrs: 2.0 pts
+    - **Water Liters (5.0 pts):** Target: 2.5 Liters.
+      - ≥2.5 L: 5.0 pts; <2.5 L: `(water_liters / 2.5) * 5.0`
+
+    #### Pillar 2: Development (Max 25.0 pts)
+    Binary check-in (1 = Completed, 0 = Missed):
+    - **Professional Development / Coding:** 15.0 pts
+    - **Reading (Book/Technical):** 10.0 pts
+
+    #### Pillar 3: Lifestyle & Consistency (Max 35.0 pts)
+    Binary check-in (1 = Completed, 0 = Missed):
+    - **Healthy Eating (No junk/clean diet):** 15.0 pts
+    - **Family / Quality Social Time:** 10.0 pts
+    - **Bed on Time (Lights out by target hour):** 10.0 pts
+
+    #### Score Tiers & Color Palette:
+    - **90 – 100:** `OPTIMAL` (Emerald `#10b981`)
+    - **80 – 89:** `SOLID` (Cyan `#06b6d4`)
+    - **70 – 79:** `BASELINE` (Amber `#f59e0b`)
+    - **60 – 69:** `SUBOPTIMAL` (Orange `#f97316`)
+    - **0 – 59:** `CRITICAL` (Rose `#ef4444`)
+
+    ---
+
+    ### 3. DATABASE SCHEMA
+    Create the table `daily_logs` automatically on startup:
+    ```sql
+    CREATE TABLE IF NOT EXISTS daily_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER DEFAULT 1,
+        date TEXT NOT NULL,                     -- ISO YYYY-MM-DD
+        day_of_week TEXT NOT NULL,              -- Monday, Tuesday...
+        steps INTEGER DEFAULT 0,
+        exercise_minutes INTEGER DEFAULT 0,
+        sleep_hours REAL DEFAULT 0.0,
+        resting_hr INTEGER,                     -- Trend metric; not scored
+        water_liters REAL DEFAULT 0.0,
+        reading_completed INTEGER DEFAULT 0,     -- 1 or 0
+        prof_dev_completed INTEGER DEFAULT 0,    -- 1 or 0
+        healthy_eating_completed INTEGER DEFAULT 0,
+        family_time_completed INTEGER DEFAULT 0,
+        bed_on_time_completed INTEGER DEFAULT 0,
+        day_rating INTEGER,                     -- 1 to 4 subjective scale
+        notes TEXT,
+        score_health REAL DEFAULT 0.0,
+        score_dev REAL DEFAULT 0.0,
+        score_lifestyle REAL DEFAULT 0.0,
+        score_total REAL DEFAULT 0.0,
+        score_tier TEXT DEFAULT 'CRITICAL',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, date)
+    );
+  ──────
+  ### 4. API ENDPOINTS SPECIFICATION
+
+  1. POST /api/checkin
+      • Receives JSON telemetry from Apple Shortcut or in-app entry.
+      • Upserts record (calculates all pillar scores & tier automatically).
+      • Returns 201 with the created/updated record.
+  2. GET /api/day/{date}
+      • Returns JSON of the day's record or 404 { "detail": "No record for date" }.
+  3. GET /api/history?days=7
+      • Returns array of the last N days in chronological order (date, day_of_week, score_total, score_health, score_dev, score_lifestyle, score_tier) for Chart.js rendering.
+  4. GET /api/streaks
+      • Returns current consecutive completion streak and all-time record for Reading, Professional Development, Healthy Eating, and Bed on Time.
+  5. GET /api/bottleneck
+      • Analyzes the past 30 days. Computes % adherence for each habit and identifies the single lowest-performing habit as the bottleneck.
+  6. GET /api/export/csv
+      • Downloads a complete CSV containing all columns and timestamps.
+  7. POST /api/seed
+      • Seeds 14 to 30 days of realistic historical telemetry data if the database is empty, so the UI is immediately interactive upon launch.
+
+  ──────
+  ### 5. FRONTEND DASHBOARD (High-Tech HUD)
+
+  The frontend should be a responsive single-page dashboard with:
+
+  1. Side Rail / Top Header: Cosmo branding with glowing status badge (SYSTEM ONLINE), active date indicator (DAILY TELEMETRY / LIVE).
+  2. Date Navigation: < Previous Day | [Formatted Local Calendar Date] | Next Day > with a Today jump button.
+  3. Hero Score Ring:
+      • SVG circular progress ring showing score_total / 100.
+      • Tier badge (OPTIMAL, SOLID, etc.) dynamically colored.
+  4. Three Pillar Cards: Health (40 pts), Dev (25 pts), Lifestyle (35 pts) with animated fill bars.
+  5. Habit Cards: 5 cards showing status (Done in green or Missed in muted red).
+  6. 7-Day Trend Chart: Chart.js canvas with cyan gradient fill and tooltips.
+  7. Consistency Streaks: Clean list of habits showing X days | record Y.
+  8. Monthly Focus / Bottleneck: Highlights the lowest habit over 30 days with a color-coded percentage progress bar.
+  9. Interactive Features:
+      • Apple Shortcut Setup Guide Modal: Displays the live public URL (https://<repl-name>.<user>.replit.app/api/checkin), the JSON payload schema, and 3-step setup instructions.
+      • Manual Check-In Modal: A clean fallback modal to manually enter steps, sleep, water, and toggle habits for any selected date.
+      • One-Click CSV Export: Direct download link in the footer.
+      • Empty State: If a day has no record, shows a sleek onboarding card with buttons to open the Apple Shortcut guide or manually log telemetry, while keeping historical trend charts, streaks, and
+      monthly bottleneck visible.
+
+  ──────
+  ### 6. APPLE SHORTCUT COMPATIBILITY
+
+  The POST /api/checkin endpoint must accept this standard JSON body:
+
+    {
+      "date": "2026-10-03",
+      "steps": 9450,
+      "exercise_minutes": 35,
+      "sleep_hours": 7.2,
+      "resting_hr": 62,
+      "water_liters": 2.5,
+      "reading_completed": 1,
+      "prof_dev_completed": 1,
+      "healthy_eating_completed": 1,
+      "family_time_completed": 1,
+      "bed_on_time_completed": 0,
+      "day_rating": 3,
+      "notes": "Evening workout complete"
+    }
+
+  All biometric values should be optional and gracefully default to 0 or 0.0 if omitted.
+  ──────
+  ### 7. VERIFICATION & RUN COMMAND
+
+  • Provide a main.py entry point that starts Uvicorn:
+  uvicorn main:app --host 0.0.0.0 --port 8080
+  • Automatically seed sample data on first run if the database is empty.
+  • Ensure all tests pass with pytest.
+
+
+    ***
+
+    ### 💡 Why this Replit version will be significantly better:
+    1. **Public HTTPS Webhook Out-of-the-Box:** Replit automatically provides an `https://<app>.<user>.replit.app` URL. That means your iPhone / Apple Watch Shortcut can sync from anywhere (LTE, 5G, gym,
+  coffee shop) without needing port-forwarding, ngrok, or local network pairing.
+    2. **Zero Auth Hassle:** Replit isolates your deployment, allowing the web app to run with zero login screens while your shortcut posts directly to your webhook.
+    3. **Automated Seeding:** It will immediately generate 14–30 days of realistic history so your trend charts, streaks, and monthly bottlenecks look great on day one.
